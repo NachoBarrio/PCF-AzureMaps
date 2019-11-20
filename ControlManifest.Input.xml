@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest>
-  <control namespace="AzureMaps" constructor="PointsMap" version="0.0.29" display-name-key="PointsMap" description-key="PointsMap description" control-type="standard">
+  <control namespace="AzureMaps" constructor="PointsMap" version="0.0.57" display-name-key="PointsMap" description-key="PointsMap description" control-type="standard">
     <!-- dataset node represents a set of entity records on CDS; allow more than one datasets -->
     <data-set name="dataSet" display-name-key="Dataset_Display_Key">
       <!-- 'property-set' node represents a unique, configurable property that each record in the dataset must provide. -->

@@ -4,8 +4,8 @@ type DataSet = ComponentFramework.PropertyTypes.DataSet;
 import * as atlas from "azure-maps-control";
 import { TrafficControl } from "./TrafficControl";
 import { any } from "prop-types";
-
 declare var Xrm: any;
+
 
 
 export class PointsMap implements ComponentFramework.StandardControl<IInputs, IOutputs> {
@@ -14,15 +14,15 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 
 	private map : atlas.Map;
 	private _mapContainer: HTMLDivElement;
+	private _divContainer: HTMLDivElement;
 	
 
 	private _context: ComponentFramework.Context<IInputs>;
 	// Name of entity to use for example Web API calls performed by this control
 	private static _entityName: string = "iav_checkin";	  
-	// Example Web API calls performed by example custom control will set this field for new record creation examples
-	private static _requiredAttributeName: string = "iav_latitud";
 
 	private _layrData : any;
+	private _datePicked : any = null;
 	/**
 	 * Empty constructor.
 	 */
@@ -42,16 +42,28 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 	public init(context: ComponentFramework.Context<IInputs>, notifyOutputChanged: () => void, state: ComponentFramework.Dictionary, container:HTMLDivElement)
 	{
 		// Add control initialization code
-		debugger;
 		this._context = context;
 		let _map: atlas.Map;
 		this._mapContainer = document.createElement('div');
 		this._mapContainer.setAttribute("id", "map");
-		this._mapContainer.setAttribute("style", "width:100%;min-width:290px;height:100%;");
+		this._mapContainer.setAttribute("style", "width:100%;min-width:290px;height:97%;margin-top: 3em;");
+		this._divContainer = document.createElement('input');
+		this._divContainer.setAttribute("id", "datepicker");
+		this._divContainer.setAttribute("type", "date");
+		this._divContainer.setAttribute("style", "position:absolute;width:10%;min-width:4%;height:3%;");
+		var otroThis= this;
+		this._divContainer.addEventListener("change",function(e : any){
+			var cont = e.target.value;
+			otroThis.renderODataRetrieveMultipleExample(otroThis,cont);
+		});
 
-		
+		container.append(this._divContainer);
 		container.append(this._mapContainer);
 		
+
+		
+		
+
 		//URL to custom endpoint to fetch Access token
 		var url = 'https://adtokens.azurewebsites.net/api/HttpTrigger1?code=dv9Xz4tZQthdufbocOV9RLaaUhQoegXQJSeQQckm6DZyG/1ymppSoQ==';
        
@@ -59,7 +71,7 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 		_map = new atlas.Map('map', {
 			view: "Auto",
 			center: [-3.7004000,40.4146500],
-			zoom: 2,
+			zoom: 13,
 			//Add your Azure Maps subscription client ID to the map SDK. Get an Azure Maps client ID at https://azure.com/maps
 			authOptions: {
 				authType: atlas.AuthenticationType.subscriptionKey,
@@ -77,7 +89,7 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 				{position: atlas.ControlPosition.TopRight
 			});		
 
-			thisRef.renderODataRetrieveMultipleExample(thisRef);
+			thisRef.renderODataRetrieveMultipleExample(thisRef,thisRef._datePicked);
 			
 		});
 		this.map = _map;
@@ -92,29 +104,22 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 			
 	}
 
-	public renderODataRetrieveMultipleExample(thisRef : any): void {
+	public renderODataRetrieveMultipleExample(thisRef : any, datePicked: any): void {
 		debugger;
 		let containerClassName: string = "odata_status_container";
-		// Create header label for Web API sample
-		let fetchXML: string ="<fetch distinct='false' mapping='logical' aggregate='true'>";
-		fetchXML += "<entity name='" + PointsMap._entityName + "'>";
-		fetchXML += "<attribute name='iav_name' />";
-		fetchXML += "<attribute name='iav_longitud' />";
-		fetchXML += "<attribute name='iav_latitud' />";
-		fetchXML += "<attribute name='iav_checkinid' />";
-		fetchXML += "</entity>";
-		fetchXML += "</fetch>";
-
+		var datefilter = "";
 		let queryString: string =
-		"?$select=iav_name,iav_latitud,iav_longitud,iav_checkinvalido";
+		"?$select=iav_checkinid,iav_name,iav_latitud,iav_longitud,iav_checkinvalido,createdon,_ownerid_value,_owninguser_value";
 
+		if(datePicked != null && datePicked != ""){
+			datefilter = "&$filter=createdon le ("+datePicked+"T23:59:59Z) and createdon ge ("+datePicked+"T00:00:00Z)";
+		}
+		queryString = queryString  + datefilter;
 		thisRef = this;
-		//(<any>Xrm).WebApi.retrieveMultipleRecords(PointsMap._entityName,queryString).then
 		this._context.webAPI.retrieveMultipleRecords(PointsMap._entityName,queryString).then
 		(
 			function (response: any) 
 			{
-				debugger;
 				// Retrieve multiple completed successfully -- retrieve the averageValue 
 				
 
@@ -122,6 +127,9 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 				for (var i = 0; i < response.entities.length; i++) {
 					pointData.push(new atlas.data.Feature(new atlas.data.Point([response.entities[i].iav_longitud,response.entities[i].iav_latitud]), {
 						title: 'Pin_' + i,
+						date: response.entities[i].createdon ? response.entities[i].createdon : "N/A" ,
+						id: response.entities[i].iav_checkinid,
+						author: response.entities[i]["_ownerid_value@OData.Community.Display.V1.FormattedValue"] ? response.entities[i]["_ownerid_value@OData.Community.Display.V1.FormattedValue"] : "Unknown",
 						state: response.entities[i].iav_checkinvalido ? 'marker-green' : 'marker-red'
 					}));
 				}
@@ -129,7 +137,6 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 			},
 			function (errorResponse: any) 
 			{
-				debugger;
 				console.log(errorResponse);
 				// Error handling code here
 			}
@@ -186,7 +193,8 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 			});
 
 			//Add the clusterBubbleLayer and two additional layers to the map.
-		_map.layers.add([clusterBubbleLayer, clusterSymbolLayer, pinSymbolLayer]);
+		_map.layers.add([ pinSymbolLayer]);
+		_map.events.add('click', pinSymbolLayer, thisRof.clicked);
 		datasource.add(pointData);
 		
 		//_map.layers.add(new atlas.layer.SymbolLayer(datasource));
@@ -300,12 +308,56 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 	}
 
 	private clicked(e: atlas.MapMouseEvent){
+		debugger;
+		var content;
+		var coordinate : any;
+		var popupTemplate = '<div class="customInfobox">{date}</div>';
+
+		let popupContentElement = document.createElement("div");
+		popupContentElement.style.padding = "5px";
+		
+		
+
 		if (e.shapes && e.shapes.length > 0) {
 			if (e.shapes[0] instanceof atlas.Shape && e.shapes[0].getType() === 'Point') {
+				
 				var properties = e.shapes[0].getProperties();
-			window.location.href = "https://[your instance url]/main.aspx?appid=417c49a8-e6e2-e911-a849-000d3a39e21d&pagetype=entityrecord&etn=ts_trafiksignal&id=" + properties.id as string;
+				// content = popupTemplate.replace(/{date}/g, properties.date);
+				 coordinate = e.shapes[0].getCoordinates();
+
+				let popupNameElement = document.createElement("div");
+            	popupNameElement.innerText =  properties.date;
+				popupContentElement.appendChild(popupNameElement);
+
+				let popupAuthorElement = document.createElement("div");
+				popupAuthorElement.innerText = properties.author;
+				popupContentElement.appendChild(popupAuthorElement);
+				
+				let popupLinkElement = document.createElement("a");
+				popupLinkElement.innerText = "Navegar a Checkin";
+				popupLinkElement.href = "https://loxamhunedesarrollo.crm4.dynamics.com/main.aspx?appid=12f6327b-f0e4-e911-a828-000d3aba2a59&pagetype=entityrecord&etn=iav_checkin&id=" + properties.id as string;
+			   	popupContentElement.appendChild(popupLinkElement);
+ 
+				
+			//window.location.href = "https://[your instance url]/main.aspx?appid=417c49a8-e6e2-e911-a849-000d3a39e21d&pagetype=entityrecord&etn=ts_trafiksignal&id=" + properties.id as string;
 			}
 		}
+
+		var popup = new atlas.Popup();
+
+		if (popupContentElement && coordinate) {
+			//Populate the popupTemplate with data from the clicked point feature.
+			popup.setOptions({
+			  //Update the content of the popup.
+			  content: popupContentElement,
+	  
+			  //Update the position of the popup with the symbols coordinate.
+			  position: coordinate
+			});
+	  
+			//Open the popup.
+			popup.open(e.map);
+		  }
 	}
 
 	/** 
