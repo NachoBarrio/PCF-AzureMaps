@@ -12,7 +12,7 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 
 	private featureCollection: atlas.data.FeatureCollection;
 
-	private map : atlas.Map;
+	private map : any;
 	private _mapContainer: HTMLDivElement;
 	private _divContainer: HTMLDivElement;
 	
@@ -54,6 +54,7 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 		var otroThis= this;
 		this._divContainer.addEventListener("change",function(e : any){
 			var cont = e.target.value;
+			otroThis.map.popups.clear();
 			otroThis.renderODataRetrieveMultipleExample(otroThis,cont);
 		});
 
@@ -314,6 +315,7 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 		var popupTemplate = '<div class="customInfobox">{date}</div>';
 
 		let popupContentElement = document.createElement("div");
+		popupContentElement.setAttribute("id", "popupid");
 		popupContentElement.style.padding = "5px";
 		
 		
