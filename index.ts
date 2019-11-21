@@ -3,7 +3,7 @@ import DataSetInterfaces = ComponentFramework.PropertyHelper.DataSetApi;
 type DataSet = ComponentFramework.PropertyTypes.DataSet;
 import * as atlas from "azure-maps-control";
 import { TrafficControl } from "./TrafficControl";
-import { any } from "prop-types";
+import { any, element, array } from "prop-types";
 declare var Xrm: any;
 
 
@@ -14,6 +14,7 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 
 	private map : any;
 	private _mapContainer: HTMLDivElement;
+	private _menuContainer: HTMLDivElement
 	private _divContainer: HTMLDivElement;
 	
 
@@ -47,6 +48,10 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 		this._mapContainer = document.createElement('div');
 		this._mapContainer.setAttribute("id", "map");
 		this._mapContainer.setAttribute("style", "width:100%;min-width:290px;height:97%;margin-top: 3em;");
+
+		this._menuContainer = document.createElement('div');
+		this._menuContainer.setAttribute("id", "map");
+
 		this._divContainer = document.createElement('input');
 		this._divContainer.setAttribute("id", "datepicker");
 		this._divContainer.setAttribute("type", "date");
@@ -71,12 +76,12 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 		//Initialize a map instance.
 		_map = new atlas.Map('map', {
 			view: "Auto",
-			center: [-3.7004000,40.4146500],
-			zoom: 13,
+			zoom: 8,
+			renderWorldCopies: false,
 			//Add your Azure Maps subscription client ID to the map SDK. Get an Azure Maps client ID at https://azure.com/maps
 			authOptions: {
 				authType: atlas.AuthenticationType.subscriptionKey,
-				subscriptionKey: 'F3uow4ojPKAJcEvZirA42WrSk9pryR-7UTlBsTsoAnk'
+				subscriptionKey: 'DYJUx1FSacDHw1ts2SuNzmUpPQE3I2rmuIGczsHX2So'
 			},
 			enableAccessibility: false,
 		});
@@ -106,7 +111,6 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 	}
 
 	public renderODataRetrieveMultipleExample(thisRef : any, datePicked: any): void {
-		debugger;
 		let containerClassName: string = "odata_status_container";
 		var datefilter = "";
 		let queryString: string =
@@ -115,7 +119,7 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 		if(datePicked != null && datePicked != ""){
 			datefilter = "&$filter=createdon le ("+datePicked+"T23:59:59Z) and createdon ge ("+datePicked+"T00:00:00Z)";
 		}
-		queryString = queryString  + datefilter;
+		queryString = queryString  + datefilter + "&$orderby=createdon asc";
 		thisRef = this;
 		this._context.webAPI.retrieveMultipleRecords(PointsMap._entityName,queryString).then
 		(
@@ -125,6 +129,7 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 				
 
 				var pointData = [];
+				var lineData = [];
 				for (var i = 0; i < response.entities.length; i++) {
 					pointData.push(new atlas.data.Feature(new atlas.data.Point([response.entities[i].iav_longitud,response.entities[i].iav_latitud]), {
 						title: 'Pin_' + i,
@@ -133,8 +138,10 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 						author: response.entities[i]["_ownerid_value@OData.Community.Display.V1.FormattedValue"] ? response.entities[i]["_ownerid_value@OData.Community.Display.V1.FormattedValue"] : "Unknown",
 						state: response.entities[i].iav_checkinvalido ? 'marker-green' : 'marker-red'
 					}));
+
+					lineData.push([response.entities[i].iav_longitud,response.entities[i].iav_latitud]);
 				}
-				thisRef.printMap(thisRef,pointData);
+				thisRef.printMap(thisRef,pointData,lineData);
 			},
 			function (errorResponse: any) 
 			{
@@ -144,61 +151,72 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 		);
 	}
 
-	public printMap(thisRof : any,pointData : any){
+	public printMap(thisRof : any,pointData : any, lineData : any){
 		var _map = thisRof.map;
 
 		//Create a data source and add it to the map.
-		let datasource = new atlas.source.DataSource("ds0", {
-			cluster: true,
+		// let datasource = new atlas.source.DataSource("ds0", {
+		// 	cluster: true,
 
-			//The radius in pixels to cluster points together.
-			clusterRadius: 80,
+		// 	//The radius in pixels to cluster points together.
+		// 	clusterRadius: 80,
 			
 			
-			clusterProperties: {
-				// @ts-ignore
-				anomaly: ['+',['get', 'anomaly']],
-				// @ts-ignore
-				normal: ['+',['get', 'anomaly']]
-			}
-		});
-
-		datasource = new atlas.source.DataSource();
+		// 	clusterProperties: {
+		// 		// @ts-ignore
+		// 		anomaly: ['+',['get', 'anomaly']],
+		// 		// @ts-ignore
+		// 		normal: ['+',['get', 'anomaly']]
+		// 	}
+		// });
+		let datasource = new atlas.source.DataSource();
 		
 		_map.sources.add(datasource);		
 
 			//Create a bubble layer for rendering clustered data points.
-		let clusterBubbleLayer = new atlas.layer.BubbleLayer(datasource);
-
+		
 		_map.imageSprite.createFromTemplate('marker-green', 'marker', 'green', '#fff');
 		_map.imageSprite.createFromTemplate('red-circle', 'pin-round', 'red', 'rgba(0,0,0,0)');
 		
-			//Create a symbol layer to render the count of locations in a cluster.
-		//let clusterSymbolLayer = new atlas.layer.SymbolLayer(datasource);
-
-				//Create a symbol layer to render the count of locations in a cluster.
-		let clusterSymbolLayer = new atlas.layer.SymbolLayer(datasource, "sl0", {
-			iconOptions: {
-				image: 'none'
-			}
-		});
 
 		//Create a layer to render the individual locations.
-		//let pinSymbolLayer = new atlas.layer.SymbolLayer(datasource);
-
-			//Create a layer to render the individual locations.
 		let pinSymbolLayer = new atlas.layer.SymbolLayer(datasource, "sl1", {
 			iconOptions: {
 					image: ['get', 'state']
 					}
 			});
-
-			//Add the clusterBubbleLayer and two additional layers to the map.
-		_map.layers.add([ pinSymbolLayer]);
+		
+		//Add the clusterBubbleLayer and two additional layers to the map.
+		
 		_map.events.add('click', pinSymbolLayer, thisRof.clicked);
 		datasource.add(pointData);
+
+		var lineLayer = new atlas.layer.LineLayer(datasource, "ly1", {
+			strokeColor: 'DarkOrchid',
+			strokeWidth: 3
+		})
 		
-		//_map.layers.add(new atlas.layer.SymbolLayer(datasource));
+		
+		datasource.add(new atlas.data.Feature(new atlas.data.LineString(lineData)));
+		debugger;
+		//Establecer posición de la camara
+		if(pointData.length > 0){
+			var swLon = Math.min(pointData[0].geometry.coordinates[0], -3.7004000); 
+			var swLat = Math.min(pointData[0].geometry.coordinates[1], 40.4146500); 
+			var neLon = Math.max(pointData[0].geometry.coordinates[0], -3.7004000); 
+			var neLat = Math.max(pointData[0].geometry.coordinates[1], 40.4146500); 
+			_map.setCameraBounds({ 
+				bounds: [swLon, swLat, neLon, neLat], 
+				padding: 1 
+			}); 
+			
+			
+		}
+		
+		
+		
+
+		_map.layers.add([pinSymbolLayer,lineLayer]);
 
 	}
 
@@ -309,7 +327,6 @@ export class PointsMap implements ComponentFramework.StandardControl<IInputs, IO
 	}
 
 	private clicked(e: atlas.MapMouseEvent){
-		debugger;
 		var content;
 		var coordinate : any;
 		var popupTemplate = '<div class="customInfobox">{date}</div>';
